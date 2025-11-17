@@ -1,5 +1,5 @@
 # AI-Engineer-Learning-Path
-Job Oriented Learning &amp; Reviewing Path(1~3months' duration).
+Job Oriented Learning &amp; Reviewing Path(duration：1~3months).
 
 用于本人实习期间记录复习&学习内容，待补充优化。
 
