@@ -571,7 +571,7 @@ mxRAG SDK是MindX SDK行业套件之一,专门面向大语言模型知识增强�
 
 + 容器内环境准备
 
-  进入容器后执行以下命令安装依赖，创建工作目录，并准备app.py的代码([昇腾官方app.py](https://gitcode.com/Ascend/mindsdk-referenceapps/blob/master/RAGSDK/MainRepo/Samples/RagDemo/chat_with_ascend/app.py)此代码中大模型服务使用Openai接口，如果使用MindIE服务，参考这个文件:[app_mindie.py]())：
+  进入容器后执行以下命令安装依赖，创建工作目录，并准备app.py的代码([昇腾官方app.py](https://gitcode.com/Ascend/mindsdk-referenceapps/blob/master/RAGSDK/MainRepo/Samples/RagDemo/chat_with_ascend/app.py)此代码中大模型服务使用Openai接口，如果使用MindIE服务，参考这个文件:[app_mindie.py](https://github.com/Kiu795/AI-Engineer-Learning-Path/blob/main/A1_RAGSDK/app_mindie.py))：
 
   ```bash
   # 安装文档转换依赖（libreoffice）与中文字体
@@ -586,10 +586,20 @@ mxRAG SDK是MindX SDK行业套件之一,专门面向大语言模型知识增强�
   mkdir -p /home/HwHiAiUser/workspace
   cd /home/HwHiAiUser/workspace
   
-  # 编辑Demo代码文件（将仓库中的app.py内容复制到文件中）
-  vim app.py
+  # 编辑Demo代码文件（将仓库中的app_mindie.py内容复制到文件中）
+  vim app_mindie.py
   ```
 
 + 启动WEB服务
 
-  
+  ```bash
+  streamlit run app_mindie.py --server.address "0.0.0.0" --server.port 28080
+  ```
+
++ 在PC浏览器中输入http://<服务IP>:<服务端口>访问
+
+  ![image-20251128170734583](https://cdn.jsdelivr.net/gh/kiu795/pic@main/img/image-20251128170734583.png)
+
++ 正在解决的问题：
+  + 实现在流程中屏蔽大模型输出中的<think>tag
+  + ...
