@@ -1,4 +1,4 @@
-# 昇腾Ascend RAGSDK 基本框架部署流程
+# 昇腾Ascend RAGSDK 框架部署流程笔记
 
 ***
 
@@ -364,8 +364,232 @@ MindIE 内置：
 +　推理失败重启
 +　状态监控性能统计（吞吐、延迟）
 
-### 3.2 MindIE的部署
+#### 3.2 MindIE的部署
 
-+ 下载mindie镜像并启动，注意挂载模型文件夹。
++ 下载mindie镜像
+
+  ![image-20251128161102189](https://cdn.jsdelivr.net/gh/kiu795/pic@main/img/image-20251128161102189.png)
+
+- 启动命令示例，注意挂载模型文件夹
+
+  ```bash
+  docker run -it -d -u root -p 28080:28080 -p 28081:28081 -p 28082:28082 -p 28083:28083 -p 28084:28084 -p 28085:28085 -p 28086:28086 -p 28087:28087 \
+  --security-opt seccomp=unconfined \
+  --name=t1 \
+  --privileged \
+  --shm-size=2000m \
+  --network=host \
+  --device=/dev/davinci0 \
+  --device=/dev/davinci1 \
+  --device=/dev/davinci_manager \
+  --device=/dev/devmm_svm \
+  --device=/dev/hisi_hdc \
+  --entrypoint=/bin/bash \
+  -v /etc/ascend_install.info:/etc/ascend_install.info \
+  -v /usr/local/Ascend/driver:/usr/local/Ascend/driver \
+  -v /usr/local/dcmi:/usr/local/dcmi \
+  -v /usr/local/Ascend/firmware/:/usr/local/Ascend/firmware/ \
+  -v /usr/local/Ascend/toolbox:/usr/local/Ascend/toolbox \
+  -v /usr/local/Ascend/add-ons/:/usr/local/Ascend/add-ons/ \
+  -v /usr/local/bin/npu-smi:/usr/local/bin/npu-smi \
+  -v /usr/local/sbin:/usr/local/sbin \
+  -v /usr/local/sbin/npu-smi:/usr/local/sbin/npu-smi \
+  -v /var/log/npu/conf/slog/slog.conf:/var/log/npu/conf/slog/slog.conf \
+  -v /var/log/npu/slog/:/var/log/npu/slog \
+  -v /var/log/npu/profiling/:/var/log/npu/profiling \
+  -v /var/log/npu/dump/:/var/log/npu/dump \
+  -v /var/log/npu/:/usr/slog \
+  -v /data/models/:/home/ma-user/aicc \
+  33a909d3d6c1 bash
+  ```
+
+- 进入容器，设置环境变量
+
+  ```bash
+  # 配置CANN环境，默认安装在/usr/local目录下
+  source /usr/local/Ascend/ascend-toolkit/set_env.sh
+  # 配置模型仓环境变量
+  source /usr/local/Ascend/atb-models/set_env.sh
+  # MindIE
+  source /usr/local/Ascend/mindie/latest/mindie-llm/set_env.sh
+  source /usr/local/Ascend/mindie/latest/mindie-service/set_env.sh
+  ```
+  
+- cd进`usr/local/Ascend/mindie/latest/mindie-service/conf/conf.json`
+
+  修改如下字段：
+
+  ```json
+  {
+      "Version" : "1.1.0",
+      "LogConfig" :
+      {
+          "logLevel" : "Info",
+          "logFileSize" : 20,
+          "logFileNum" : 20,
+          "logPath" : "logs/mindservice.log"
+      },
+  
+      "ServerConfig" :
+      {
+          "ipAddress" : "0.0.0.0", 	#此处两个IP地址修改为0.0.0.0以支持服务公网访问
+          "managementIpAddress" : "0.0.0.0",
+          "port" : 1025,
+          "managementPort" : 1026,
+          "metricsPort" : 1027,
+          "allowAllZeroIpListening" : true,
+          "maxLinkNum" : 1000,
+          "httpsEnabled" : false, 	#HTTPS通信安全认证，如果开启需要配置证书文件
+          "fullTextEnabled" : false,
+          ...
+      },
+      "BackendConfig" : {
+          "backendName" : "mindieservice_llm_engine",
+          "modelInstanceNumber" : 1,
+          "npuDeviceIds" : [[0,1]], 	#这里修改为实际的设备数量
+          "tokenizerProcessNumber" : 8,
+          "multiNodesInferEnabled" : false,
+          "multiNodesInferPort" : 1120,
+          "interNodeTLSEnabled" : true,
+          "interNodeTlsCaPath" : "security/grpc/ca/",
+          "interNodeTlsCaFiles" : ["ca.pem"],
+          "interNodeTlsCert" : "security/grpc/certs/server.pem",
+          "interNodeTlsPk" : "security/grpc/keys/server.key.pem",
+          "interNodeTlsPkPwd" : "security/grpc/pass/mindie_server_key_pwd.txt",
+          "interNodeTlsCrlPath" : "security/grpc/certs/",
+          "interNodeTlsCrlFiles" : ["server_crl.pem"],
+          "interNodeKmcKsfMaster" : "tools/pmt/master/ksfa",
+          "interNodeKmcKsfStandby" : "tools/pmt/standby/ksfb",
+          "ModelDeployConfig" :
+          {
+              "maxSeqLen" : 1024,
+              "maxInputTokenLen" : 1024,
+              "truncation" : false,
+              "ModelConfig" : [
+                  {
+                      "modelInstanceType" : "Standard",
+                      "modelName" : "Qwen3-8B", #这里和下方修改为实际的模型名称&权重路径
+                      "modelWeightPath" : "/home/ma-user/aicc/Qwen/Qwen3-8B",
+                      "worldSize" : 2, 	#修改为几个NPU设备数量
+                      "cpuMemSize" : 5,
+                      "npuMemSize" : -1,
+                      "backendType" : "atb",
+                      "trustRemoteCode" : false 	#是否信任远程代码
+                  }
+              ]
+          },
+  
+  
+  ```
+
+- 模型交互命令(命令行)
+
+  ```bash
+  curl -v http://223.244.40.15:1025/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d \
+  '{
+    "model": "Qwen3-8B",
+    "temperature": 0.3,
+    "max_tokens": 32, 	#生成长度
+    "stream": true,
+    "chat_template_kwargs":{"enable_thinking":false},
+    "messages": [
+      {
+        "role": "user",
+        "content": "你是谁？"
+      }
+    ]
+  }'
+  ```
+
+#### 3.3 MindIE接口测试
+
+进入[Apifox](app.apifox.com)，新建快捷请求，POST
+
+![image-20251128163828384](https://cdn.jsdelivr.net/gh/kiu795/pic@main/img/image-20251128163828384.png)
+
+`自动合并`支持流式传输。
+
+## 4. RAG SDK
+
+### 4.1 RAGSDK基础概念
+
+mxRAG SDK是MindX SDK行业套件之一,专门面向大语言模型知识增强应用场景,提供快速构建问答系统的能力,使能基于昇腾AI处理器搭建实用可靠的平台系统,并且兼容LangChain框架。
+
+### 4.2 部署RAGSDK
+
++ 下载镜像
+
+  ![image-20251128164808544](https://cdn.jsdelivr.net/gh/kiu795/pic@main/img/image-20251128164808544.png)
+
++ 按照以下模板启动镜像
+
+  ```bash
+  docker run -u <user> -e ASCEND_VISIBLE_DEVICES=0 -itd --name=rag_sdk_demo --network=host \
+    -v /path/to/model:/path/to/model:ro \
+    <镜像名称>:<镜像tag>
+  ```
+
++ 进入容器，配置环境
+
+  ```bash
+  bash /opt/package/install.sh 	#安装CANN
+  ```
+
++ 设置环境变量
+
+  ```bash
+  source ~/.bashrc
+  ```
+
++ 编译检索算子，以实现检索功能（可选，业务中涉及使用MindFaiss时才需要编译，此笔记中示例未执行该行命令）
+
+  ```bash
+  cd $MX_INDEX_INSTALL_PATH/tools/ && python3 aicpu_generate_model.py -t <chip_type> && python3 flat_generate_model.py -d <dim> -t <chip_type>  && cp op_models/* $MX_INDEX_MODELPATH
+  ```
+
+### 4.3  RAG SDK 运行
+
++ 部署RAGSDK
+
++ 部署LLM服务(本笔记中使用MindIE服务)
+
++ 部署Milvus服务(支持v2.5.0及以上版本)
+
++ 部署mis-tei embedding与reranker服务
+
++ 部署OCR服务(本笔记中项目暂未部署成功)
+
++ 图文并茂回答支持（可选，本笔记未部署）：
+
+  若需解析docx、pdf文件中的图片并生成图文回答，需额外部署VLM模型服务（推荐模型：qwen2.5-vl-7b-instruct，[参考链接](https://www.hiascend.com/developer/ascendhub/detail/9eedc82e0c0644b2a2a9d0821ed5e7ad)）。
+
+  > 注：长或宽小于256像素的图片因信息不足，将被自动丢弃。
+
+#### 4.3.1 运行Demo
+
++ 容器内环境准备
+
+  进入容器后执行以下命令安装依赖，创建工作目录，并准备app.py的代码([昇腾官方app.py](https://gitcode.com/Ascend/mindsdk-referenceapps/blob/master/RAGSDK/MainRepo/Samples/RagDemo/chat_with_ascend/app.py)此代码中大模型服务使用Openai接口，如果使用MindIE服务，参考这个文件:[app_mindie.py]())：
+
+  ```bash
+  # 安装文档转换依赖（libreoffice）与中文字体
+  apt-get install -y libreoffice fonts-noto-cjk
+  
+  # 安装Python依赖包
+  pip3 install streamlit
+  pip3 install mineru --trusted-host https://mirrors.aliyun.com/pypi/simple/
+  pip3 install numpy==1.26.4 --trusted-host https://mirrors.aliyun.com/pypi/simple/
+  
+  # 创建Demo工作目录并进入
+  mkdir -p /home/HwHiAiUser/workspace
+  cd /home/HwHiAiUser/workspace
+  
+  # 编辑Demo代码文件（将仓库中的app.py内容复制到文件中）
+  vim app.py
+  ```
+
++ 启动WEB服务
 
   
